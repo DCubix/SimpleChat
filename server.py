@@ -33,7 +33,7 @@ def broadcast_chat(msg, exp):
         if n == exp: continue
         serv.sendto(pickle.dumps(dat), a)
 
-namewidth = 20
+namewidth = 21
 servtext = "[SERVER]".rjust(namewidth)
 while True:
     try:
@@ -43,8 +43,8 @@ while True:
         if msg["type"] == "CONN":
             if msg["data"] not in USERS.keys():
                 USERS[msg["data"]] = addr
-                USERLIST = "Currently Online: ".rjust(namewidth)+",".join(list(USERS.keys()))
-                info = servtext+": %s has joined the party.\n%s" % (msg["data"], USERLIST)
+                info = servtext+": %s has joined the party." % msg["data"]
+
                 print(info.strip("\n"))
                 broadcast(info)
             else:
@@ -53,22 +53,26 @@ while True:
                     "data": servtext+": The name \"%s\" is already taken." % msg["data"]
                 }
                 serv.sendto(pickle.dumps(dat), addr)
+                
         elif msg["type"] == "DISCONN":
             del USERS[msg["data"]]
-            USERLIST = "Currently Online: ".rjust(namewidth)+",".join(list(USERS.keys()))
-            info = servtext+": %s doesn't want to party anymore.\n%s" % (msg["data"], USERLIST)
+            info = servtext+": %s has joined the party." % msg["data"]
+            
             print(info.strip("\n"))
             broadcast(info)
+            
         elif msg["type"] == "CHATMSG":
             _from, message = msg["data"]
             info = "%s: %s" % (_from.rjust(namewidth), message)
+
             print(info.strip("\n"))
             broadcast(info)
-        elif msg["type"] == "USERLIST":
+            
+        elif msg["type"] == "GETUSERLIST":
             ULIST = list(USERS.keys())
             dat = {
-                "type": "DATA",
-                "data": ULIST
+                "type": "MSG",
+                "data": servtext+": Users: " + ",".join(ULIST)
             }
             serv.sendto(pickle.dumps(dat), addr)
             

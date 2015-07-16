@@ -91,7 +91,10 @@ class CLIENT_APP(Frame):
         tm = tm.replace(" ", "_")
 
         import codecs
-        with codecs.open('data/temp/messages_tmp_'+tm+'.log', 'w', 'utf-8') as f:
+        if not os.path.exists("temp"):
+            os.mkdir("temp")
+            
+        with codecs.open('temp/messages_tmp_'+tm+'.log', 'w', 'utf-8') as f:
             for m in self.msgs:
                 f.write(m+"\n")
         
@@ -105,6 +108,11 @@ class CLIENT_APP(Frame):
         self.parent.destroy()
         
     def client_thread(self):
+        datul = {
+            "type": "GETUSERLIST",
+            "data": 0
+        }
+        self.sock.sendto(pickle.dumps(datul), self.address)
         while True:
             try:
                 if self.state == 0: break
@@ -131,7 +139,7 @@ class CLIENT_APP(Frame):
                     
                     self.messages.see(END)                    
                     self.messages.config(state=DISABLED)
-                                        
+                    
                 elif resp["type"] == "ERR_FATAL":
                     self.msgs.append(resp["data"])
                     print(resp["data"])
@@ -196,14 +204,21 @@ class CLIENT_APP(Frame):
         def send_click():
             global name
 
-            if self.message.get() == "/quit" or self.message.get() == "/q":
+            cmd = self.message.get()
+            if cmd == "/quit" or cmd == "/q":
                 self.del_chat()
+            elif cmd == "/userlist" or cmd == "/ul":
+                datul = {
+                    "type": "GETUSERLIST",
+                    "data": 0
+                }
+                self.sock.sendto(pickle.dumps(datul), self.address)
             else:
-                if self.message.get() == "" or self.message.get() == " ":
+                if cmd == "" or cmd == " ":
                     return
                 cmsg = {
                     "type": "CHATMSG",
-                    "data": [name, self.message.get()]
+                    "data": [name, cmd]
                 }
                 self.sock.sendto(pickle.dumps(cmsg), self.address)
                 self.message.delete(0, END)
