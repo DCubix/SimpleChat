@@ -56,7 +56,7 @@ while True:
                 
         elif msg["type"] == "DISCONN":
             del USERS[msg["data"]]
-            info = servtext+": %s has joined the party." % msg["data"]
+            info = servtext+": %s doesn't want to party anymore." % msg["data"]
             
             print(info.strip("\n"))
             broadcast(info)
