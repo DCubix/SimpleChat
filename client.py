@@ -221,7 +221,7 @@ class CLIENT_APP(Frame):
                     "data": [name, cmd]
                 }
                 self.sock.sendto(pickle.dumps(cmsg), self.address)
-                self.message.delete(0, END)
+            self.message.delete(0, END)
 
         def send_click_ev(event):
             send_click()
