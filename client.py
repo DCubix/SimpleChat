@@ -1,7 +1,8 @@
 from socket import *
 import pickle
 import random
-import sys, os
+import sys, os, time
+import pygame
 
 # GUI
 try:
@@ -22,7 +23,9 @@ except:
 try:
     from threading import Thread
     def new_thread(proc, args=()):
-        Thread(target=proc, args=args).start()
+        th = Thread(target=proc, args=args)
+        th.daemon = True
+        th.start()
 except:
     import thread
     def new_thread(proc, args=()):
@@ -69,6 +72,11 @@ class CustomText(ScrolledText):
             self.mark_set("matchEnd", "%s+%sc" % (index, count.get()))
             self.tag_add(tag, "matchStart", "matchEnd")
 
+def relative(path):
+    basePath = os.path.dirname(__file__)
+    rPath = os.path.join(basePath, path)
+    return rPath
+
 class CLIENT_APP(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
@@ -81,6 +89,11 @@ class CLIENT_APP(Frame):
         self.state = 1
         
         self._col = 0
+
+        self.snd_wakeup = None
+        self.snd_message = None
+        self.snd_online = None
+        self.sounds = True
 
     def del_chat(self):
         global name
@@ -96,7 +109,7 @@ class CLIENT_APP(Frame):
             
         with codecs.open('temp/messages_tmp_'+tm+'.log', 'w', 'utf-8') as f:
             for m in self.msgs:
-                f.write(m+"\n")
+                f.write(str(m)+"\n")
         
         msg = {
             "type": "DISCONN",
@@ -106,8 +119,21 @@ class CLIENT_APP(Frame):
         self.sock.close()
         self.state = 0
         self.parent.destroy()
-        
+
+    def playsnd(self, snd):
+        c = snd.play()
+        while c.get_busy():
+            pygame.time.delay(100)
+    
     def client_thread(self):
+        
+        # Init PYGAME :)
+        pygame.mixer.init(44100, -16, 1, 1024)
+        
+        self.snd_wakeup = pygame.mixer.Sound(relative('data\\LC_USER_WAKEUP.wav'))
+        self.snd_message = pygame.mixer.Sound(relative('data\\LC_USER_MSG.wav'))
+        self.snd_online = pygame.mixer.Sound(relative('data\\LC_USER_ONLINE.wav'))
+        
         datul = {
             "type": "GETUSERLIST",
             "data": 0
@@ -123,23 +149,35 @@ class CLIENT_APP(Frame):
                 resp = pickle.loads(data)
 
                 if resp["type"] == "MSG":
+                    _from, msg = resp["data"]
+                    recv = "%s: %s" % (_from, msg)
                     self.msgs.append(resp["data"])
-                    print(resp["data"])
+                    print(recv)
                     
                     self.messages.config(state=NORMAL)
-                                        
-                    if "[SERVER]" in resp["data"]:
-                        self.messages.insert(END, "|"+resp["data"]+"\n")
-                        self.messages.highlight_pattern(r"\|.+?:", "serv_message", regexp=True)
+
+                    padfrom = _from.rjust(22)
+                    padmsg = padfrom+": "+msg
+                    if _from == "[SERVER]":
+                        if "joined" in msg:
+                            if self.sounds:
+                                self.playsnd(self.snd_online)
+                        self.messages.insert(END, "|"+padmsg+"\n", "serv_message")
                     else:
                         _tag = "odd" if self._col == 1 else "even"
-                        self.messages.insert(END, "|"+resp["data"]+"\n", _tag)
+                        self.messages.insert(END, "|"+padmsg+"\n", _tag)
 
+                        if self.sounds:
+                            self.playsnd(self.snd_message)
+                        
                     self._col = 0 if self._col == 1 else 1
-                    
+
                     self.messages.see(END)                    
                     self.messages.config(state=DISABLED)
                     
+                elif resp["type"] == "WAKEUP":
+                    self.playsnd(self.snd_wakeup)
+
                 elif resp["type"] == "ERR_FATAL":
                     self.msgs.append(resp["data"])
                     print(resp["data"])
@@ -150,6 +188,7 @@ class CLIENT_APP(Frame):
                     self.sock.close()
                     self.parent.destroy()
                     sys.exit()
+                pygame.time.delay(1)
             except:
                 pass
     
@@ -163,6 +202,9 @@ class CLIENT_APP(Frame):
         self.port = int(conf.get("network", "port"))
         self.address = (self.host, self.port)
 
+        snd = int(conf.get("chat", "sounds"))
+        self.sounds = True if snd == 1 else False
+                
         self.sock = socket(AF_INET, SOCK_DGRAM)
         self.sock.setblocking(False)
         
@@ -192,8 +234,8 @@ class CLIENT_APP(Frame):
 
         self.messages.tag_configure("serv_message", foreground="black", background="yellow")
         self.messages.tag_configure("even", foreground="black", background="#dddddd")
-        self.messages.tag_configure("odd", foreground="black", background="#ffffff")
-        self.messages.tag_configure("err", foreground="white", background="red")
+        self.messages.tag_configure("odd", foreground="black", background="white", borderwidth=1, spacing2=4, relief=RIDGE)
+        self.messages.tag_configure("err", foreground="white", background="red", borderwidth=1, spacing2=4, relief=RIDGE)
         
         msgarea = Frame(self)
         msgarea.pack(fill=X, side=BOTTOM)
@@ -213,6 +255,12 @@ class CLIENT_APP(Frame):
                     "data": 0
                 }
                 self.sock.sendto(pickle.dumps(datul), self.address)
+            elif cmd == "/wakeup" or cmd == "/wu":
+                cmsg = {
+                    "type": "HEYWAKEUP",
+                    "data": name
+                }
+                self.sock.sendto(pickle.dumps(cmsg), self.address)
             else:
                 if cmd == "" or cmd == " ":
                     return
@@ -226,7 +274,14 @@ class CLIENT_APP(Frame):
         def send_click_ev(event):
             send_click()
 
+        def get_last_msg(e):
+            if len(self.msgs) <= 0: return
+            userms = [m for m in self.msgs if m[0] != "[SERVER]"]
+            self.message.delete(0, END)
+            self.message.insert(0, "%s: %s" % (userms[-1][0], userms[-1][1]))
+        
         self.message.bind("<Return>", send_click_ev)
+        self.message.bind("<Up>", get_last_msg)
         
         self.send = Button(msgarea, text="Send", command=send_click)
         self.send.pack(side=RIGHT)
