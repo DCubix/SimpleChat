@@ -9,9 +9,11 @@ try:
     from tkinter import *
     from tkinter.scrolledtext import ScrolledText
     from tkinter.ttk import *
+    from tkinter.simpledialog import askstring
 except:
     from Tkinter import *
     from ScrolledText import *
+    from tkSimpleDialog import askstring
     
 # Config Parser
 try:
@@ -34,18 +36,16 @@ except:
 if sys.version_info[0] == 2:
     input = raw_input
 
-name = input(" User Name >>>> ")
-name = name if name != "" else "GUEST"+str(random.randint(1, 999))
-
 def relative(path):
     basePath = os.path.dirname(__file__)
     rPath = os.path.join(basePath, path)
     return rPath
 
 class CLIENT_APP(Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, name="guest"):
         Frame.__init__(self, parent)
         self.parent = parent
+        self.name = name
 
         self.init_ui()
         self.init_chat()
@@ -60,9 +60,7 @@ class CLIENT_APP(Frame):
         self.snd_online = None
         self.sounds = True
 
-    def del_chat(self):
-        global name
-        
+    def del_chat(self):        
         from datetime import datetime
         tm = str(datetime.now())
         tm = tm.replace(":", "_")
@@ -78,7 +76,7 @@ class CLIENT_APP(Frame):
         
         msg = {
             "type": "DISCONN",
-            "data": name
+            "data": self.name
         }
         self.sock.sendto(pickle.dumps(msg), self.address)
         self.sock.close()
@@ -161,10 +159,9 @@ class CLIENT_APP(Frame):
                     sys.exit()
                 pygame.time.delay(1)
             except:
-                pass
+                pygame.time.delay(1)
     
     def init_chat(self):
-        global name
         
         conf = ConfigParser()
         conf.readfp(open(r'config.ini'))
@@ -184,15 +181,13 @@ class CLIENT_APP(Frame):
 
         msg = {
             "type": "CONN",
-            "data": name
+            "data": self.name
         }
         self.sock.sendto(pickle.dumps(msg), self.address)
 
         new_thread(self.client_thread)
         
     def init_ui(self):
-        global name
-
         if sys.version_info[0] > 2:
             s = Style()
             s.theme_use('clam')
@@ -216,8 +211,6 @@ class CLIENT_APP(Frame):
         self.message.pack(fill=X, side=LEFT, expand=1)
 
         def send_click():
-            global name
-
             cmd = self.message.get()
             if cmd == "/quit" or cmd == "/q":
                 self.del_chat()
@@ -230,7 +223,7 @@ class CLIENT_APP(Frame):
             elif cmd == "/wakeup" or cmd == "/wu":
                 cmsg = {
                     "type": "HEYWAKEUP",
-                    "data": name
+                    "data": self.name
                 }
                 self.sock.sendto(pickle.dumps(cmsg), self.address)
             else:
@@ -238,7 +231,7 @@ class CLIENT_APP(Frame):
                     return
                 cmsg = {
                     "type": "CHATMSG",
-                    "data": [name, cmd]
+                    "data": [self.name, cmd]
                 }
                 self.sock.sendto(pickle.dumps(cmsg), self.address)
             self.message.delete(0, END)
@@ -259,13 +252,20 @@ class CLIENT_APP(Frame):
         self.send.pack(side=RIGHT)
 
 root = Tk()
-app = CLIENT_APP(root)
+root.withdraw()
+
+name = askstring("L-Dev Chat", "User Name", initialvalue="guest", parent=root)
+while name == "" or len(name) > 18 or len(name) < 3:
+    name = askstring("L-Dev Chat", "User Name(Cannot be null or have more than 18 characters or less than 3 characters)", initialvalue="guest", parent=root)
+
+app = CLIENT_APP(root, name)
 
 def on_close():
     app.del_chat()
 
 if __name__ == "__main__":    
     root.geometry("512x512+40+40")
-    root.resizable(width=FALSE, height=FALSE)
+    #root.resizable(width=FALSE, height=FALSE)
     root.protocol("WM_DELETE_WINDOW", on_close)
+    root.deiconify()
     root.mainloop()
