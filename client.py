@@ -121,6 +121,7 @@ class CLIENT_APP(Frame):
         self.parent.destroy()
 
     def playsnd(self, snd):
+        if snd is None: return
         c = snd.play()
         while c.get_busy():
             pygame.time.delay(100)
@@ -129,10 +130,13 @@ class CLIENT_APP(Frame):
         
         # Init PYGAME :)
         pygame.mixer.init(44100, -16, 1, 1024)
-        
-        self.snd_wakeup = pygame.mixer.Sound(relative('data\\LC_USER_WAKEUP.wav'))
-        self.snd_message = pygame.mixer.Sound(relative('data\\LC_USER_MSG.wav'))
-        self.snd_online = pygame.mixer.Sound(relative('data\\LC_USER_ONLINE.wav'))
+
+        try:
+            self.snd_wakeup = pygame.mixer.Sound(relative('data\\LC_USER_WAKEUP.wav'))
+            self.snd_message = pygame.mixer.Sound(relative('data\\LC_USER_MSG.wav'))
+            self.snd_online = pygame.mixer.Sound(relative('data\\LC_USER_ONLINE.wav'))
+        except:
+            print("Could not load sounds.")
         
         datul = {
             "type": "GETUSERLIST",
