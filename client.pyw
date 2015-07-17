@@ -58,6 +58,7 @@ class CLIENT_APP(Frame):
         self.snd_wakeup = None
         self.snd_message = None
         self.snd_online = None
+        self.snd_mention = None
         self.sounds = True
 
     def del_chat(self):        
@@ -98,7 +99,9 @@ class CLIENT_APP(Frame):
             self.snd_wakeup = pygame.mixer.Sound(relative('data\\LC_USER_WAKEUP.wav'))
             self.snd_message = pygame.mixer.Sound(relative('data\\LC_USER_MSG.wav'))
             self.snd_online = pygame.mixer.Sound(relative('data\\LC_USER_ONLINE.wav'))
+            self.snd_mention = pygame.mixer.Sound(relative('data\\LC_USER_MENTION.wav'))
         except:
+            self.sounds = False
             print("Could not load sounds.")
         
         datul = {
@@ -134,12 +137,16 @@ class CLIENT_APP(Frame):
                                 self.playsnd(self.snd_online)
                     else:
                         _tag = "odd" if self._col == 1 else "even"
+
                         self.messages.insert(END, "|"+padmsg+"\n", _tag)
                         self.messages.see(END)
                         
                         if self.sounds:
-                            self.playsnd(self.snd_message)
-                        
+                            if self.name in msg and _from != self.name:                            
+                                self.playsnd(self.snd_mention)
+                            else:
+                                self.playsnd(self.snd_message)
+                                
                     self._col = 0 if self._col == 1 else 1
                     
                     self.messages.config(state=DISABLED)
