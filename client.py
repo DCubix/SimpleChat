@@ -31,46 +31,11 @@ except:
     def new_thread(proc, args=()):
         thread.start_new_thread(proc, args)
 
+if sys.version_info[0] == 2:
+    input = raw_input
+
 name = input(" User Name >>>> ")
 name = name if name != "" else "GUEST"+str(random.randint(1, 999))
-
-class CustomText(ScrolledText):
-    '''A text widget with a new method, highlight_pattern()
-
-    example:
-
-    text = CustomText()
-    text.tag_configure("red", foreground="#ff0000")
-    text.highlight_pattern("this should be red", "red")
-
-    The highlight_pattern method is a simplified python
-    version of the tcl code at http://wiki.tcl.tk/3246
-    '''
-    def __init__(self, *args, **kwargs):
-        ScrolledText.__init__(self, *args, **kwargs)
-
-    def highlight_pattern(self, pattern, tag, start="1.0", end="end",
-                          regexp=False):
-        '''Apply the given tag to all text that matches the given pattern
-
-        If 'regexp' is set to True, pattern will be treated as a regular
-        expression.
-        '''
-
-        start = self.index(start)
-        end = self.index(end)
-        self.mark_set("matchStart", start)
-        self.mark_set("matchEnd", start)
-        self.mark_set("searchLimit", end)
-
-        count = IntVar()
-        while True:
-            index = self.search(pattern, "matchEnd","searchLimit",
-                                count=count, regexp=regexp)
-            if index == "": break
-            self.mark_set("matchStart", index)
-            self.mark_set("matchEnd", "%s+%sc" % (index, count.get()))
-            self.tag_add(tag, "matchStart", "matchEnd")
 
 def relative(path):
     basePath = os.path.dirname(__file__)
@@ -163,20 +128,22 @@ class CLIENT_APP(Frame):
                     padfrom = _from.rjust(22)
                     padmsg = padfrom+": "+msg
                     if _from == "[SERVER]":
+                        self.messages.insert(END, "|"+padmsg+"\n", "serv_message")
+                        self.messages.see(END)
+                        
                         if "joined" in msg:
                             if self.sounds:
                                 self.playsnd(self.snd_online)
-                        self.messages.insert(END, "|"+padmsg+"\n", "serv_message")
                     else:
                         _tag = "odd" if self._col == 1 else "even"
                         self.messages.insert(END, "|"+padmsg+"\n", _tag)
-
+                        self.messages.see(END)
+                        
                         if self.sounds:
                             self.playsnd(self.snd_message)
                         
                     self._col = 0 if self._col == 1 else 1
-
-                    self.messages.see(END)                    
+                    
                     self.messages.config(state=DISABLED)
                     
                 elif resp["type"] == "WAKEUP":
@@ -226,20 +193,21 @@ class CLIENT_APP(Frame):
     def init_ui(self):
         global name
 
-        s = Style()
-        s.theme_use('clam')
+        if sys.version_info[0] > 2:
+            s = Style()
+            s.theme_use('clam')
         
         self.parent.title("L-Dev's Simple Chat")
         self.pack(fill=BOTH, expand=1)
 
-        self.messages = CustomText(self)
+        self.messages = ScrolledText(self)
         self.messages.config(font=("consolas", 9), wrap='word', state=DISABLED)
         self.messages.pack(side=TOP, fill=BOTH, expand=TRUE)
 
         self.messages.tag_configure("serv_message", foreground="black", background="yellow")
-        self.messages.tag_configure("even", foreground="black", background="#dddddd")
-        self.messages.tag_configure("odd", foreground="black", background="white", borderwidth=1, spacing2=4, relief=RIDGE)
-        self.messages.tag_configure("err", foreground="white", background="red", borderwidth=1, spacing2=4, relief=RIDGE)
+        self.messages.tag_configure("even", foreground="black", bgstipple="gray50", background="#dddddd")
+        self.messages.tag_configure("odd", foreground="black", bgstipple="gray50", background="white", borderwidth=1, relief=RIDGE)
+        self.messages.tag_configure("err", foreground="white", bgstipple="gray50", background="red", borderwidth=1, relief=RIDGE)
         
         msgarea = Frame(self)
         msgarea.pack(fill=X, side=BOTTOM)
